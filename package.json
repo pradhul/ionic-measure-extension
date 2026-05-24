@@ -1,0 +1,20 @@
+{
+  "name": "ionic-measure-extension",
+  "version": "0.1.0",
+  "description": "Pixel-perfect measurement overlay for Ionic apps in Chrome",
+  "type": "module",
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types src/lib/spacing.test.ts && node --experimental-strip-types src/lib/alignment.test.ts"
+  },
+  "keywords": ["chrome-extension", "ionic", "measurement"],
+  "license": "MIT",
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.0.0-beta.28",
+    "@types/chrome": "^0.0.287",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3"
+  }
+}

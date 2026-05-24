@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ionic Measure</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Ionic Measure</h1>
+      <p class="subtitle">Pixel-perfect overlays for Ionic apps</p>
+    </header>
+
+    <section id="connection-banner" class="banner banner-warn" hidden>
+      Page not connected — refresh the Ionic tab, then toggle Active again.
+    </section>
+
+    <section class="toggle-row">
+      <label class="switch">
+        <input type="checkbox" id="active" />
+        <span class="slider"></span>
+      </label>
+      <span id="status-label">Inactive</span>
+    </section>
+
+    <section>
+      <label for="mode">Mode</label>
+      <select id="mode">
+        <option value="component">Component — all internal dimensions</option>
+        <option value="spacing">Spacing — gap between two elements</option>
+        <option value="alignment">Alignment — edge extension lines</option>
+      </select>
+    </section>
+
+    <section class="checkbox-row">
+      <input type="checkbox" id="snap-ion" />
+      <label for="snap-ion">Optional: snap spacing/alignment picks to <code>ion-*</code> host</label>
+    </section>
+
+    <section>
+      <label for="min-size">Min element size (px)</label>
+      <input type="number" id="min-size" min="0" max="100" value="2" />
+    </section>
+
+    <footer>
+      <button type="button" id="clear" class="secondary">Clear selection</button>
+      <p class="hint"><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd> toggles overlay</p>
+    </footer>
+
+    <script type="module" src="./popup.ts"></script>
+  </body>
+</html>
