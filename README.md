@@ -1,5 +1,7 @@
 # Ionic Measure — Chrome Extension
 
+extension link: https://chromewebstore.google.com/detail/ionic-measure/cemannkhghihhipcokcbnnaklafbfnpj
+
 Pixel-perfect measurement overlay for **Ionic 7/8** apps. Inspect internal dimensions of a selected component or measure spacing between two elements.
 
 ## Features
