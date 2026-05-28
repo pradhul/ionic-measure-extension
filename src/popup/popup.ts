@@ -39,7 +39,7 @@ function setConnectionStatus(connected: boolean, active: boolean): void {
     connectionBanner.hidden = false;
     connectionBanner.className = 'banner banner-ok';
     connectionBanner.textContent =
-      'Connected. You should see a dark HUD box top-left on the page when hovering.';
+      'Connected. In alignment mode you will see guide lines; switch to Component or Spacing for HUD details.';
     return;
   }
   connectionBanner.hidden = true;

@@ -30,7 +30,7 @@ async function applySettings(settings: ExtensionSettings): Promise<void> {
 }
 
 function initContentScript(): void {
-  if (initialized) return;
+  if (initialized || window.__ionicMeasureLoaded) return;
   initialized = true;
   window.__ionicMeasureLoaded = true;
 

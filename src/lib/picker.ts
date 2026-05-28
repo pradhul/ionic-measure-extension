@@ -16,10 +16,8 @@ import {
 import { computeSpacing } from './spacing';
 import {
   ALL_GUIDES_VISIBLE,
-  alignedMatchLabels,
   compareToGuides,
   getEdgeGuides,
-  guidesAreVisible,
   toggleGuideVisibility,
 } from './alignment';
 import { OverlayRenderer } from './overlay';
@@ -67,13 +65,7 @@ export class MeasureController {
     if (this.active) return;
     this.active = true;
     this.overlay.mount();
-    this.overlay.setHud(
-      `<span class="hud-tag">Active</span>` +
-        `<div class="hud-row">Hover any element · click to inspect</div>` +
-        `<div class="hud-row">Component = CSS on that element</div>` +
-        `<div class="hud-row">Spacing = gap vs another element</div>` +
-        `<div class="hud-row">Alignment = edge lines from selection (click ref to toggle)</div>`,
-    );
+    this.overlay.setHudVisible(false);
     document.addEventListener('mousemove', this.boundMouseMove, true);
     document.addEventListener('click', this.boundClick, true);
     document.addEventListener('keydown', this.boundKeyDown, true);
@@ -106,10 +98,9 @@ export class MeasureController {
     this.alignmentRef = null;
     this.alignmentHover = null;
     this.overlay.clearDrawings();
-    this.overlay.setHud(
-      `<span class="hud-tag">Ready</span>` +
-        `<div class="hud-row">Selection cleared — hover & click any element</div>`,
-    );
+    this.overlay.clearHover();
+    this.overlay.hideHover();
+    this.overlay.setHudVisible(false);
     this.attachScrollTracking();
   }
 
@@ -148,6 +139,73 @@ export class MeasureController {
     return out;
   }
 
+  private detectPaddingSide(
+    metrics: ReturnType<typeof measureElement>,
+    x: number,
+    y: number,
+  ): 'top' | 'right' | 'bottom' | 'left' | null {
+    const { rect } = metrics;
+    const paddingBoxLeft = rect.left + metrics.borderLeft;
+    const paddingBoxRight = rect.right - metrics.borderRight;
+    const paddingBoxTop = rect.top + metrics.borderTop;
+    const paddingBoxBottom = rect.bottom - metrics.borderBottom;
+
+    const contentLeft = paddingBoxLeft + metrics.paddingLeft;
+    const contentRight = paddingBoxRight - metrics.paddingRight;
+    const contentTop = paddingBoxTop + metrics.paddingTop;
+    const contentBottom = paddingBoxBottom - metrics.paddingBottom;
+
+    const insidePaddingBox =
+      x >= paddingBoxLeft &&
+      x <= paddingBoxRight &&
+      y >= paddingBoxTop &&
+      y <= paddingBoxBottom;
+    const insideContentBox =
+      x >= contentLeft &&
+      x <= contentRight &&
+      y >= contentTop &&
+      y <= contentBottom;
+
+    if (!insidePaddingBox || insideContentBox) return null;
+
+    const distances = [
+      { side: 'top' as const, value: Math.abs(y - contentTop), enabled: metrics.paddingTop > 0 },
+      { side: 'right' as const, value: Math.abs(x - contentRight), enabled: metrics.paddingRight > 0 },
+      { side: 'bottom' as const, value: Math.abs(y - contentBottom), enabled: metrics.paddingBottom > 0 },
+      { side: 'left' as const, value: Math.abs(x - contentLeft), enabled: metrics.paddingLeft > 0 },
+    ].filter((item) => item.enabled);
+
+    if (distances.length === 0) return null;
+    distances.sort((a, b) => a.value - b.value);
+    return distances[0]?.side ?? null;
+  }
+
+  private componentHoverMeta(target: Element, x: number, y: number): string {
+    const metrics = measureElement(target);
+    const paddingSide = this.detectPaddingSide(metrics, x, y);
+    const roundedWidth = Math.round(metrics.width);
+    const roundedHeight = Math.round(metrics.height);
+
+    if (paddingSide === 'top') {
+      return `Padding Top: ${metrics.paddingTop}px • Element: ${roundedWidth}x${roundedHeight}px`;
+    }
+    if (paddingSide === 'right') {
+      return `Padding Right: ${metrics.paddingRight}px • Element: ${roundedWidth}x${roundedHeight}px`;
+    }
+    if (paddingSide === 'bottom') {
+      return `Padding Bottom: ${metrics.paddingBottom}px • Element: ${roundedWidth}x${roundedHeight}px`;
+    }
+    if (paddingSide === 'left') {
+      return `Padding Left: ${metrics.paddingLeft}px • Element: ${roundedWidth}x${roundedHeight}px`;
+    }
+
+    return (
+      `Element: ${roundedWidth}x${roundedHeight}px • ` +
+      `Padding (T/R/B/L): ${metrics.paddingTop}/${metrics.paddingRight}/${metrics.paddingBottom}/${metrics.paddingLeft}px • ` +
+      `Margin (T/R/B/L): ${metrics.marginTop}/${metrics.marginRight}/${metrics.marginBottom}/${metrics.marginLeft}px`
+    );
+  }
+
   private onMouseMove(e: MouseEvent): void {
     if (this.overlay.isHudDragging()) return;
 
@@ -159,7 +217,11 @@ export class MeasureController {
 
     const rect = target.getBoundingClientRect();
     const label = elementLabel(target);
-    const meta = describeElementForHover(target).replace(`${label} · `, '');
+    const fallbackMeta = describeElementForHover(target).replace(`${label} · `, '');
+    const meta =
+      this.settings.mode === 'component'
+        ? this.componentHoverMeta(target, e.clientX, e.clientY)
+        : fallbackMeta;
 
     this.overlay.showHover(rect, label, meta);
 
@@ -235,6 +297,7 @@ export class MeasureController {
   private async renderSpacingPartialA(target: Element): Promise<void> {
     const rect = target.getBoundingClientRect();
     this.overlay.clearDrawings();
+    this.overlay.setHudVisible(false);
     this.overlay.drawSelectionOutline(rect);
     let hud =
       `<span class="hud-tag">Spacing mode</span>` +
@@ -273,42 +336,6 @@ export class MeasureController {
     return html;
   }
 
-  private buildAlignmentHudHtml(
-    ref: Element,
-    visibility: typeof this.alignmentGuideVisibility,
-    hover?: Element,
-    compare?: ReturnType<typeof compareToGuides>,
-  ): string {
-    const guidesOn = guidesAreVisible(visibility);
-    let html =
-      `<span class="hud-tag">Alignment</span>` +
-      `<div class="hud-row">Reference: <span>${elementLabel(ref)}</span></div>`;
-
-    if (!guidesOn) {
-      html += `<div class="hud-row">Guides hidden — click reference to show</div>`;
-    }
-
-    if (hover && compare) {
-      html += `<div class="hud-row">Hover: <span>${elementLabel(hover)}</span></div>`;
-      if (!guidesOn) {
-        html += `<div class="hud-row">Show guides to check alignment</div>`;
-      } else {
-        const matches = alignedMatchLabels(compare);
-        if (matches.length > 0) {
-          html += `<div class="hud-row">Aligned: <span>${matches.join(' · ')}</span></div>`;
-        } else {
-          html += `<div class="hud-row">Not aligned</div>`;
-        }
-      }
-    } else if (guidesOn) {
-      html += `<div class="hud-row">Hover elements to check alignment</div>`;
-    }
-
-    html += `<div class="hud-row" style="opacity:0.7;margin-top:6px">Click reference to toggle guides</div>`;
-
-    return html;
-  }
-
   private async renderAlignment(
     ref: Element,
     hover?: Element,
@@ -326,7 +353,6 @@ export class MeasureController {
         refRect,
         guides,
         visibility,
-        this.buildAlignmentHudHtml(ref, visibility, hover, compare),
         hoverRect,
         compare,
       );
@@ -337,7 +363,6 @@ export class MeasureController {
       refRect,
       guides,
       visibility,
-      this.buildAlignmentHudHtml(ref, visibility),
     );
   }
 
@@ -386,6 +411,7 @@ export class MeasureController {
   private refresh(): void {
     if (!this.active) return;
     this.overlay.resize();
+    this.overlay.setHudVisible(false);
     if (this.settings.mode === 'component' && this.componentRoot) {
       void this.renderComponent();
     } else if (this.settings.mode === 'spacing' && this.spacingA && this.spacingB) {

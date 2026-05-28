@@ -11,7 +11,7 @@ export interface ExtensionSettings {
 }
 
 export const DEFAULT_SETTINGS: ExtensionSettings = {
-  mode: 'component',
+  mode: 'alignment',
   snapToIonHost: false,
   depthFilter: 'direct',
   minSizePx: 2,

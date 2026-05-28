@@ -3,7 +3,7 @@ import { defineManifest } from '@crxjs/vite-plugin';
 export default defineManifest({
   manifest_version: 3,
   name: 'Ionic Measure',
-  version: '0.1.0',
+  version: '0.1.1',
   description:
     'Layout measurement overlay for Ionic web apps — inspect element dimensions, spacing, and alignment.',
   permissions: ['activeTab', 'scripting', 'storage'],

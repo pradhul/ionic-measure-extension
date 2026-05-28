@@ -53,12 +53,39 @@ svg.layer {
   cursor: grab;
   border-bottom: 1px solid rgba(148, 163, 184, 0.25);
   letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  touch-action: none;
 }
 .hud-handle:active { cursor: grabbing; }
+.hud-title {
+  flex: 1;
+}
+.hud-collapse-toggle {
+  appearance: none;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 4px;
+  background: rgba(30, 41, 59, 0.9);
+  color: #e2e8f0;
+  font-size: 12px;
+  line-height: 1;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.hud-collapse-toggle:hover {
+  background: rgba(51, 65, 85, 0.95);
+}
 .hud-body {
   padding: 8px 10px 10px;
   user-select: text;
   cursor: default;
+}
+.hud-draggable.is-collapsed .hud-body {
+  display: none;
 }
 .hud-body strong { color: #38bdf8; }
 .hud-section {
@@ -92,7 +119,6 @@ svg.layer {
   color: #fff;
   border-radius: 4px;
   white-space: nowrap;
-  transform: translate(10px, 10px);
   pointer-events: none;
   font-size: 10px;
   max-width: min(420px, 90vw);
@@ -212,14 +238,49 @@ export class OverlayRenderer {
     if (this.hud) setHudContent(this.hud, html);
   }
 
+  setHudVisible(visible: boolean): void {
+    if (!this.hud) return;
+    this.hud.style.display = visible ? 'block' : 'none';
+  }
+
   showHover(rect: DOMRect, targetLabel: string, meta?: string): void {
     if (!this.hoverTag) return;
     this.hoverTag.hidden = false;
     this.hoverTag.innerHTML = meta
       ? `<span class="hover-target">${targetLabel}</span><span class="hover-meta">${meta}</span>`
       : `<span class="hover-target">${targetLabel}</span>`;
-    this.hoverTag.style.left = `${rect.left}px`;
-    this.hoverTag.style.top = `${rect.top}px`;
+
+    const tagW = this.hoverTag.offsetWidth;
+    const tagH = this.hoverTag.offsetHeight;
+    const margin = 10;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    const clamp = (value: number, min: number, max: number): number =>
+      Math.max(min, Math.min(max, value));
+
+    const intersectsTarget = (x: number, y: number): boolean => {
+      return !(
+        x + tagW < rect.left ||
+        x > rect.right ||
+        y + tagH < rect.top ||
+        y > rect.bottom
+      );
+    };
+
+    const candidates = [
+      { x: rect.right + margin, y: rect.bottom + margin },
+      { x: rect.right + margin, y: rect.top - tagH - margin },
+      { x: rect.left - tagW - margin, y: rect.bottom + margin },
+      { x: rect.left - tagW - margin, y: rect.top - tagH - margin },
+    ].map((p) => ({
+      x: clamp(p.x, margin, Math.max(margin, vw - tagW - margin)),
+      y: clamp(p.y, margin, Math.max(margin, vh - tagH - margin)),
+    }));
+
+    const best = candidates.find((p) => !intersectsTarget(p.x, p.y)) ?? candidates[0];
+    this.hoverTag.style.left = `${best.x}px`;
+    this.hoverTag.style.top = `${best.y}px`;
   }
 
   drawHoverOutline(rect: DOMRect, hasSelection = false): void {
@@ -253,6 +314,7 @@ export class OverlayRenderer {
     hudHtml: string,
   ): void {
     this.clearDrawings();
+    this.setHudVisible(false);
     this.drawLightSpacingGuides(metrics);
     this.drawStrokeRect(metrics.rect, '#38bdf8', 2, undefined, this.mainGroup);
     this.setHud(hudHtml);
@@ -266,6 +328,7 @@ export class OverlayRenderer {
     labelB: string,
   ): void {
     this.clearDrawings();
+    this.setHudVisible(false);
     this.drawStrokeRect(rectA, '#a855f7', 2, '4 2', this.mainGroup);
     this.drawStrokeRect(rectB, '#a855f7', 2, '4 2', this.mainGroup);
     this.drawSpacingMeasurement(spacing);
@@ -289,11 +352,11 @@ export class OverlayRenderer {
     refRect: DOMRect,
     guides: EdgeGuides,
     visibility: GuideVisibility,
-    hudHtml: string,
     hoverRect?: DOMRect,
     compare?: AlignmentCompareResult,
   ): void {
     this.clearDrawings();
+    this.setHudVisible(false);
     if (visibility.left || visibility.right || visibility.top || visibility.bottom) {
       this.drawEdgeGuides(guides, visibility);
     }
@@ -304,7 +367,6 @@ export class OverlayRenderer {
       this.drawAlignmentSnaps(compare);
     }
 
-    this.setHud(hudHtml);
   }
 
   private drawEdgeGuides(guides: EdgeGuides, visibility: GuideVisibility): void {
