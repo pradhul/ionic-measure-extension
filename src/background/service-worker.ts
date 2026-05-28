@@ -1,9 +1,20 @@
 import { DEFAULT_SETTINGS, type ExtensionSettings } from '../lib/types';
 
-function getContentScriptFiles(): string[] {
-  const scripts = chrome.runtime.getManifest().content_scripts;
-  const files = scripts?.[0]?.js;
-  return files?.length ? [...files] : [];
+let contentScriptFilesPromise: Promise<string[]> | null = null;
+
+function getContentScriptFiles(): Promise<string[]> {
+  if (!contentScriptFilesPromise) {
+    contentScriptFilesPromise = fetch(chrome.runtime.getURL('content-script.json'))
+      .then((res) => res.json())
+      .then((data: { files?: string[] }) => {
+        const files = data.files?.filter(Boolean) ?? [];
+        if (files.length === 0) {
+          throw new Error('No content script files in content-script.json');
+        }
+        return files;
+      });
+  }
+  return contentScriptFilesPromise;
 }
 
 async function getSettings(): Promise<ExtensionSettings> {
@@ -22,10 +33,7 @@ async function getActiveTabId(): Promise<number | null> {
 }
 
 async function injectContentScript(tabId: number): Promise<void> {
-  const files = getContentScriptFiles();
-  if (files.length === 0) {
-    throw new Error('No content script in manifest');
-  }
+  const files = await getContentScriptFiles();
   await chrome.scripting.executeScript({
     target: { tabId },
     files,

@@ -32,7 +32,7 @@ function setConnectionStatus(connected: boolean, active: boolean): void {
     connectionBanner.hidden = false;
     connectionBanner.className = 'banner banner-warn';
     connectionBanner.textContent =
-      'Page not connected — refresh the Ionic tab, then toggle Active again.';
+      'Could not reach this tab — toggle Active or press Alt+Shift+M on the page.';
     return;
   }
   if (active) {

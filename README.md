@@ -85,3 +85,22 @@ npm run dev    # Watch build
 npm run build  # Production build to dist/
 npm run typecheck
 ```
+
+## Auto-publish to Chrome Web Store
+
+This repo includes a GitHub Actions workflow at `.github/workflows/publish-chrome-web-store.yml`.
+
+It runs on:
+- Manual trigger (`workflow_dispatch`)
+- Tag pushes matching `v*` (example: `v0.1.1`)
+
+### Required GitHub repository secrets
+
+Add these in **GitHub -> Settings -> Secrets and variables -> Actions**:
+
+- `CHROME_EXTENSION_ID`
+- `CHROME_CLIENT_ID`
+- `CHROME_CLIENT_SECRET`
+- `CHROME_REFRESH_TOKEN`
+
+The workflow builds `dist/`, zips it, then uploads and publishes it through the Chrome Web Store API.

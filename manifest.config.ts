@@ -5,9 +5,8 @@ export default defineManifest({
   name: 'Ionic Measure',
   version: '0.1.0',
   description:
-    'Pixel-perfect dimension overlays for Ionic components — batch internal metrics and spacing between elements.',
+    'Layout measurement overlay for Ionic web apps — inspect element dimensions, spacing, and alignment.',
   permissions: ['activeTab', 'scripting', 'storage'],
-  host_permissions: ['<all_urls>'],
   action: {
     default_popup: 'src/popup/popup.html',
     default_title: 'Ionic Measure',
