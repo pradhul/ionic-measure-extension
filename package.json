@@ -1,6 +1,6 @@
 {
   "name": "ionic-measure-extension",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Pixel-perfect measurement overlay for Ionic apps in Chrome",
   "type": "module",
   "scripts": {

@@ -1,4 +1,5 @@
 import {
+  collectComponentChildren,
   deepElementFromPoint,
   describeElementForHover,
   elementLabel,
@@ -6,6 +7,7 @@ import {
   findNearestIonHost,
   isIonHost,
 } from './dom';
+import { buildComponentLayoutSpacings } from './layout-spacing';
 import { measureElement } from './measure';
 import { getSpacingStyles, formatSpacingStylesHtml } from './spacing-styles';
 import {
@@ -331,7 +333,7 @@ export class MeasureController {
 
     html +=
       `<div class="hud-row" style="opacity:0.7;margin-top:8px">` +
-      `Dashed orange = margin · green = padding · blue = border box</div>`;
+      `Orange = margin · green = padding · blue = border · gray = children</div>`;
 
     return html;
   }
@@ -371,10 +373,18 @@ export class MeasureController {
     await ensureComponentReady(this.componentRoot);
 
     const el = this.componentRoot;
-    const metrics = measureElement(el);
-    const hudHtml = this.buildComponentHudHtml(el, metrics);
+    const children = collectComponentChildren(
+      el,
+      this.settings.depthFilter,
+      this.settings.minSizePx,
+    );
+    const { rootMetrics, childMetrics, spacings } = buildComponentLayoutSpacings(
+      el,
+      children,
+    );
+    const hudHtml = this.buildComponentHudHtml(el, rootMetrics);
 
-    this.overlay.renderComponent(metrics, hudHtml);
+    this.overlay.renderComponent(rootMetrics, hudHtml, childMetrics, spacings);
   }
 
   private async renderSpacing(): Promise<void> {

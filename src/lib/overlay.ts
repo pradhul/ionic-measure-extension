@@ -1,4 +1,5 @@
 import type { BoxMetrics, SpacingResult } from './types';
+import type { LayoutSpacing } from './layout-spacing';
 import type { AlignmentCompareResult, EdgeGuides, GuideVisibility } from './alignment';
 import { attachDraggableHud, setHudContent } from './hud';
 
@@ -146,8 +147,33 @@ svg.layer {
   font-weight: 700;
   border-radius: 4px;
   pointer-events: none;
+  font-size: 10px;
+  line-height: 1.2;
+}
+.box-model-label {
+  position: fixed;
+  padding: 1px 5px;
+  font-weight: 700;
+  border-radius: 3px;
+  pointer-events: none;
+  font-size: 9px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.box-model-label.margin {
+  background: rgba(245, 158, 11, 0.92);
+  color: #1e293b;
+}
+.box-model-label.padding {
+  background: rgba(74, 222, 128, 0.92);
+  color: #14532d;
 }
 `;
+
+const MARGIN_FILL = 'rgba(245, 158, 11, 0.28)';
+const PADDING_FILL = 'rgba(74, 222, 128, 0.28)';
+const CHILD_OUTLINE_COLOR = '#94a3b8';
+const MAX_LAYOUT_SPACINGS = 24;
 
 export class OverlayRenderer {
   private host: HTMLElement | null = null;
@@ -308,15 +334,29 @@ export class OverlayRenderer {
     this.drawStrokeRect(rect, '#22c55e', 2, '6 4', this.mainGroup);
   }
 
-  /** Component mode: minimal on-canvas guides; details live in HUD. */
+  /** Component mode: Figma-style box model + internal child gaps on canvas. */
   renderComponent(
     metrics: BoxMetrics,
     hudHtml: string,
+    childMetrics: BoxMetrics[] = [],
+    layoutSpacings: LayoutSpacing[] = [],
   ): void {
     this.clearDrawings();
     this.setHudVisible(false);
-    this.drawLightSpacingGuides(metrics);
+
+    this.drawBoxModelFills(metrics);
+
+    for (const child of childMetrics) {
+      this.drawStrokeRect(child.rect, CHILD_OUTLINE_COLOR, 1, '3 2', this.mainGroup);
+    }
+
+    const cappedSpacings = layoutSpacings.slice(0, MAX_LAYOUT_SPACINGS);
+    for (const { spacing } of cappedSpacings) {
+      this.drawSpacingMeasurement(spacing);
+    }
+
     this.drawStrokeRect(metrics.rect, '#38bdf8', 2, undefined, this.mainGroup);
+    this.drawBoxModelLabels(metrics);
     this.setHud(hudHtml);
   }
 
@@ -452,48 +492,219 @@ export class OverlayRenderer {
     }
   }
 
-  private drawLightSpacingGuides(m: BoxMetrics): void {
+  private drawBoxModelFills(m: BoxMetrics): void {
     const { rect } = m;
-    const hasMargin =
-      m.marginTop || m.marginRight || m.marginBottom || m.marginLeft;
-    const hasPadding =
-      m.paddingTop || m.paddingRight || m.paddingBottom || m.paddingLeft;
+    const marginOuter = {
+      left: rect.left - m.marginLeft,
+      top: rect.top - m.marginTop,
+      right: rect.right + m.marginRight,
+      bottom: rect.bottom + m.marginBottom,
+    };
 
-    if (hasMargin) {
-      this.drawStrokeRect(
-        {
-          left: rect.left - m.marginLeft,
-          top: rect.top - m.marginTop,
-          width: rect.width + m.marginLeft + m.marginRight,
-          height: rect.height + m.marginTop + m.marginBottom,
-        } as DOMRect,
-        '#f59e0b',
-        1,
-        '3 2',
-        this.mainGroup,
+    if (m.marginTop > 0) {
+      this.drawFillRect(
+        marginOuter.left,
+        marginOuter.top,
+        marginOuter.right - marginOuter.left,
+        m.marginTop,
+        MARGIN_FILL,
+      );
+    }
+    if (m.marginBottom > 0) {
+      this.drawFillRect(
+        marginOuter.left,
+        rect.bottom,
+        marginOuter.right - marginOuter.left,
+        m.marginBottom,
+        MARGIN_FILL,
+      );
+    }
+    if (m.marginLeft > 0) {
+      this.drawFillRect(
+        marginOuter.left,
+        rect.top,
+        m.marginLeft,
+        rect.height,
+        MARGIN_FILL,
+      );
+    }
+    if (m.marginRight > 0) {
+      this.drawFillRect(
+        rect.right,
+        rect.top,
+        m.marginRight,
+        rect.height,
+        MARGIN_FILL,
       );
     }
 
-    if (hasPadding) {
-      const w =
-        rect.width - m.paddingLeft - m.paddingRight - m.borderLeft - m.borderRight;
-      const h =
-        rect.height - m.paddingTop - m.paddingBottom - m.borderTop - m.borderBottom;
-      if (w > 0 && h > 0) {
-        this.drawStrokeRect(
-          {
-            left: rect.left + m.borderLeft + m.paddingLeft,
-            top: rect.top + m.borderTop + m.paddingTop,
-            width: w,
-            height: h,
-          } as DOMRect,
-          '#4ade80',
-          1,
-          '2 2',
-          this.mainGroup,
-        );
-      }
+    const paddingOuter = {
+      left: rect.left + m.borderLeft,
+      top: rect.top + m.borderTop,
+      right: rect.right - m.borderRight,
+      bottom: rect.bottom - m.borderBottom,
+    };
+    const contentLeft = paddingOuter.left + m.paddingLeft;
+    const contentTop = paddingOuter.top + m.paddingTop;
+    const contentRight = paddingOuter.right - m.paddingRight;
+    const contentBottom = paddingOuter.bottom - m.paddingBottom;
+
+    if (m.paddingTop > 0) {
+      this.drawFillRect(
+        paddingOuter.left,
+        paddingOuter.top,
+        paddingOuter.right - paddingOuter.left,
+        m.paddingTop,
+        PADDING_FILL,
+      );
     }
+    if (m.paddingBottom > 0) {
+      this.drawFillRect(
+        paddingOuter.left,
+        paddingOuter.bottom - m.paddingBottom,
+        paddingOuter.right - paddingOuter.left,
+        m.paddingBottom,
+        PADDING_FILL,
+      );
+    }
+    if (m.paddingLeft > 0) {
+      this.drawFillRect(
+        paddingOuter.left,
+        contentTop,
+        m.paddingLeft,
+        Math.max(0, contentBottom - contentTop),
+        PADDING_FILL,
+      );
+    }
+    if (m.paddingRight > 0) {
+      this.drawFillRect(
+        contentRight,
+        contentTop,
+        m.paddingRight,
+        Math.max(0, contentBottom - contentTop),
+        PADDING_FILL,
+      );
+    }
+  }
+
+  private drawBoxModelLabels(m: BoxMetrics): void {
+    const { rect } = m;
+    const marginOuter = {
+      left: rect.left - m.marginLeft,
+      top: rect.top - m.marginTop,
+      right: rect.right + m.marginRight,
+      bottom: rect.bottom + m.marginBottom,
+    };
+    const paddingOuter = {
+      left: rect.left + m.borderLeft,
+      top: rect.top + m.borderTop,
+      right: rect.right - m.borderRight,
+      bottom: rect.bottom - m.borderBottom,
+    };
+    const contentLeft = paddingOuter.left + m.paddingLeft;
+    const contentTop = paddingOuter.top + m.paddingTop;
+    const contentRight = paddingOuter.right - m.paddingRight;
+    const contentBottom = paddingOuter.bottom - m.paddingBottom;
+
+    if (m.marginTop > 0) {
+      this.addBoxModelLabel(
+        (marginOuter.left + marginOuter.right) / 2,
+        marginOuter.top + m.marginTop / 2,
+        `${m.marginTop}`,
+        'margin',
+      );
+    }
+    if (m.marginBottom > 0) {
+      this.addBoxModelLabel(
+        (marginOuter.left + marginOuter.right) / 2,
+        rect.bottom + m.marginBottom / 2,
+        `${m.marginBottom}`,
+        'margin',
+      );
+    }
+    if (m.marginLeft > 0) {
+      this.addBoxModelLabel(
+        marginOuter.left + m.marginLeft / 2,
+        (rect.top + rect.bottom) / 2,
+        `${m.marginLeft}`,
+        'margin',
+      );
+    }
+    if (m.marginRight > 0) {
+      this.addBoxModelLabel(
+        rect.right + m.marginRight / 2,
+        (rect.top + rect.bottom) / 2,
+        `${m.marginRight}`,
+        'margin',
+      );
+    }
+
+    if (m.paddingTop > 0) {
+      this.addBoxModelLabel(
+        (paddingOuter.left + paddingOuter.right) / 2,
+        paddingOuter.top + m.paddingTop / 2,
+        `${m.paddingTop}`,
+        'padding',
+      );
+    }
+    if (m.paddingBottom > 0) {
+      this.addBoxModelLabel(
+        (paddingOuter.left + paddingOuter.right) / 2,
+        paddingOuter.bottom - m.paddingBottom / 2,
+        `${m.paddingBottom}`,
+        'padding',
+      );
+    }
+    if (m.paddingLeft > 0) {
+      this.addBoxModelLabel(
+        paddingOuter.left + m.paddingLeft / 2,
+        (contentTop + contentBottom) / 2,
+        `${m.paddingLeft}`,
+        'padding',
+      );
+    }
+    if (m.paddingRight > 0) {
+      this.addBoxModelLabel(
+        contentRight + m.paddingRight / 2,
+        (contentTop + contentBottom) / 2,
+        `${m.paddingRight}`,
+        'padding',
+      );
+    }
+  }
+
+  private drawFillRect(
+    left: number,
+    top: number,
+    width: number,
+    height: number,
+    fill: string,
+  ): void {
+    if (!this.mainGroup || width <= 0 || height <= 0) return;
+    const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    r.setAttribute('x', String(left));
+    r.setAttribute('y', String(top));
+    r.setAttribute('width', String(width));
+    r.setAttribute('height', String(height));
+    r.setAttribute('fill', fill);
+    r.setAttribute('stroke', 'none');
+    this.mainGroup.appendChild(r);
+  }
+
+  private addBoxModelLabel(
+    x: number,
+    y: number,
+    text: string,
+    kind: 'margin' | 'padding',
+  ): void {
+    if (!this.badgeLayer) return;
+    const badge = document.createElement('div');
+    badge.className = `box-model-label ${kind}`;
+    badge.textContent = text;
+    badge.style.left = `${x}px`;
+    badge.style.top = `${y}px`;
+    badge.style.transform = 'translate(-50%, -50%)';
+    this.badgeLayer.appendChild(badge);
   }
 
   private drawStrokeRect(

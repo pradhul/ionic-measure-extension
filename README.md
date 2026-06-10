@@ -19,11 +19,15 @@ npm install
 npm run build
 ```
 
+`npm run build` compiles the extension and syncs loadable files (`manifest.json`, `assets/`, etc.) to the **project root**, so you can load either the repo folder or `dist/`.
+
 1. Open `chrome://extensions`
 2. Enable **Developer mode**
-3. **Load unpacked** → select the `dist` folder
+3. **Load unpacked** → select the project folder (`ionic-measure-extension`) or `dist/`
 4. **Important:** open your Ionic page and press **Refresh (F5)** after loading or updating the extension
 5. Toggle **Active** in the popup — you should see a green “Connected” banner and a dark HUD box top-left on the page when hovering
+
+**Note:** Edit extension settings in `manifest.config.json` (source). The root `manifest.json` is generated on build — do not edit it by hand.
 
 ### Nothing happens when I click?
 

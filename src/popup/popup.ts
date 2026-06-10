@@ -45,6 +45,12 @@ function setConnectionStatus(connected: boolean, active: boolean): void {
   connectionBanner.hidden = true;
 }
 
+function revertActiveToggle(): void {
+  activeEl.checked = false;
+  statusLabel.textContent = 'Inactive';
+  statusLabel.style.color = '#64748b';
+}
+
 async function pushSettings(): Promise<void> {
   const settings = readForm();
   applyToForm(settings);
@@ -52,7 +58,18 @@ async function pushSettings(): Promise<void> {
     const result = (await chrome.runtime.sendMessage({
       type: 'POPUP_UPDATE',
       settings,
-    })) as { connected?: boolean; error?: string };
+    })) as { connected?: boolean; error?: string; ok?: boolean };
+    const failed = Boolean(result?.error) || result?.ok === false;
+    if (failed && settings.active) {
+      revertActiveToggle();
+      setConnectionStatus(false, false);
+      connectionBanner.hidden = false;
+      connectionBanner.className = 'banner banner-warn';
+      connectionBanner.textContent =
+        result?.error ??
+        'Could not enable on this tab — refresh the page (F5) and try again.';
+      return;
+    }
     setConnectionStatus(result?.connected !== false, settings.active);
     if (result?.error) {
       connectionBanner.hidden = false;
@@ -60,7 +77,8 @@ async function pushSettings(): Promise<void> {
       connectionBanner.textContent = result.error;
     }
   } catch {
-    setConnectionStatus(false, settings.active);
+    if (settings.active) revertActiveToggle();
+    setConnectionStatus(false, false);
   }
 }
 
@@ -79,6 +97,14 @@ async function loadState(): Promise<void> {
   }
 }
 
+function setFormEnabled(enabled: boolean): void {
+  activeEl.disabled = !enabled;
+  modeEl.disabled = !enabled;
+  snapEl.disabled = !enabled;
+  minSizeEl.disabled = !enabled;
+  clearBtn.disabled = !enabled;
+}
+
 activeEl.addEventListener('change', () => void pushSettings());
 modeEl.addEventListener('change', () => void pushSettings());
 snapEl.addEventListener('change', () => void pushSettings());
@@ -95,4 +121,8 @@ clearBtn.addEventListener('click', async () => {
   }
 });
 
-void loadState();
+void (async () => {
+  setFormEnabled(false);
+  await loadState();
+  setFormEnabled(true);
+})();

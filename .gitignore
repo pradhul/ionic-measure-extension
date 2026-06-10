@@ -1,7 +1,14 @@
 node_modules/
 dist/
 .DS_Store
+
+# Built extension artifacts synced to project root (npm run build)
+/manifest.json
+/assets/
+/service-worker-loader.js
+/content-script.json
+/popup/
 *.log
-dist.pem
+*.pem
 extension.zip
 ionic-measure-extension.zip

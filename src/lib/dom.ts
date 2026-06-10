@@ -161,6 +161,56 @@ export function getChildElements(el: Element): Element[] {
   return out;
 }
 
+function hasElementChildren(el: Element): boolean {
+  if (el.children.length > 0) return true;
+  if (el.shadowRoot) {
+    for (const child of el.shadowRoot.children) {
+      if (child instanceof Element) return true;
+    }
+  }
+  return false;
+}
+
+/** Collect visible child elements for component-mode layout spacing. */
+export function collectComponentChildren(
+  root: Element,
+  depthFilter: 'direct' | 'all' | 'leaves',
+  minSizePx: number,
+): Element[] {
+  const minArea = minSizePx * minSizePx;
+
+  const passesSize = (el: Element): boolean => {
+    if (!isVisible(el)) return false;
+    const rect = el.getBoundingClientRect();
+    const area = rect.width * rect.height;
+    return area >= minArea;
+  };
+
+  if (depthFilter === 'direct') {
+    return getChildElements(root).filter(passesSize);
+  }
+
+  const out: Element[] = [];
+  const walk = (parent: Element): void => {
+    for (const child of getChildElements(parent)) {
+      if (!passesSize(child)) continue;
+      if (depthFilter === 'leaves') {
+        if (hasElementChildren(child)) {
+          walk(child);
+        } else {
+          out.push(child);
+        }
+      } else {
+        out.push(child);
+        walk(child);
+      }
+    }
+  };
+
+  walk(root);
+  return out;
+}
+
 export function elementLabel(el: Element): string {
   const tag = el.tagName.toLowerCase();
   const id = el.id ? `#${el.id}` : '';
